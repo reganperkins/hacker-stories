@@ -2,41 +2,41 @@ import './App.css';
 import { useEffect, useState } from 'react';
 
 const API_ENDPOINT = 'https://hn.algolia.com/api/v1/search?query=';
+const initialRememberSearch = JSON.parse(localStorage.getItem('remember-search'));
 
 function App() {
-  const [rememberSearches, setRememberSearches] = useState( localStorage.getItem('remember-search') || false);
-  const [searchTerm, setSearchTerm] = useState(rememberSearches || '');
+  const [rememberSearches, setRememberSearches] = useState( !!initialRememberSearch);
+  const [currentSearchTerm, setCurrentSearchTerm] = useState(initialRememberSearch || '');
+  const [searchInput, setSearchInput] = useState(rememberSearches ? initialRememberSearch : '');
   const [list, setList] = useState([]);
-  const [url, setUrl] = useState(API_ENDPOINT);
 
   useEffect(() => {
     const fetchStories = async () => {
-      const request = await fetch(url);
+      const request = await fetch(`${API_ENDPOINT}${currentSearchTerm}`);
       const response = await request.json();
       setList(response.hits);
     }
     fetchStories();
-  }, [url]);
+  }, [currentSearchTerm]);
 
   useEffect(() => {
-    localStorage.setItem('remember-search', rememberSearches ? searchTerm : false);
-  }, [rememberSearches]);
+    localStorage.setItem('remember-search', JSON.stringify(rememberSearches ? currentSearchTerm : false));
+  }, [currentSearchTerm, rememberSearches]);
 
   const handleSearchInput = (e) =>
-    setSearchTerm(e.target.value);
+  setSearchInput(e.target.value);
 
   const handleCheckbox = (e) => {
-    console.log('hi', e, e.target.checked)
     setRememberSearches(e.target.checked);
   }
 
   const handelSearchSubmit = () =>
-    setUrl(`${API_ENDPOINT}${searchTerm}`);
+    setCurrentSearchTerm(searchInput);
 
   return (
     <main>
-      <InputWithLabel name="remember" type="checkbox" onClick={handleCheckbox}>Remember my last search</InputWithLabel>
-      <InputWithLabel name="search" onChange={handleSearchInput}>Search:</InputWithLabel>
+      <InputWithLabel name="remember" type="checkbox" checked={rememberSearches} onChange={handleCheckbox}>Remember my last search</InputWithLabel>
+      <InputWithLabel name="search" value={searchInput} onChange={handleSearchInput}>Search:</InputWithLabel>
       <button type="submit" onClick={handelSearchSubmit}>Submit</button>
       <List list={list} />
     </main>
