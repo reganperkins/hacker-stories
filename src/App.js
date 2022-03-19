@@ -1,8 +1,8 @@
 import './App.css';
-import { useEffect, useReducer, useState } from 'react';
+import { useEffect, useReducer } from 'react';
 
 const API_ENDPOINT = 'https://hn.algolia.com/api/v1/search?query=';
-const initialRememberSearch = JSON.parse(localStorage.getItem('remember-search'));
+const rememberedContent = JSON.parse(localStorage.getItem('remember-search'));
 
 const storyReducer = (state, action) => {
   switch (action.type) {
@@ -21,7 +21,7 @@ const storyReducer = (state, action) => {
     case 'REMOVE_STORY':
       return {
         ...state,
-        stories: state.data.filter(story => action.payload.objectID !== story.objectID)
+        data: state.data.filter(story => action.payload.objectID !== story.objectID)
       };
     case 'STORIES_FETCH_SUCCESS':
       return {
@@ -35,18 +35,47 @@ const storyReducer = (state, action) => {
   }
 }
 
-function App() {
-  const [rememberSearches, setRememberSearches] = useState( !!initialRememberSearch);
-  const [currentSearchTerm, setCurrentSearchTerm] = useState(initialRememberSearch || '');
-  const [searchInput, setSearchInput] = useState(rememberSearches ? initialRememberSearch : '');
+const searchReducer = (state, action) => {
+  switch(action.type) {
+    case 'UPDATE_SEARCH_INPUT':
+      return {
+        ...state,
+        searchInput: action.payload,
+      };
+    case 'SUBMIT_SEARCH':
+      return {
+        ...state,
+        searchInput: '',
+        currentSearchTerm: action.payload,
+      };
+    case 'UPDATE_REMEMBER_SEARCH':
+      return {
+        ...state,
+        rememberSearchTerm: action.payload,
+      };
+    default:
+      throw new Error();
+  }
+};
 
-  const [stories, dispatchStories] = useReducer(storyReducer, { data: [], isLoading: false, isError: false });
+function App() {
+  const [search, searchDispatch] = useReducer(searchReducer, {
+    rememberSearchTerm: !!rememberedContent,
+    currentSearchTerm: rememberedContent || '',
+    searchInput: rememberedContent || '',
+  });
+
+  const [stories, dispatchStories] = useReducer(storyReducer, {
+    data: [],
+    isLoading: false,
+    isError: false
+  });
 
   useEffect(() => {
     const fetchStories = async () => {
       dispatchStories({type: 'STORIES_FETCH_INIT'});
       try {
-        const request = await fetch(`${API_ENDPOINT}${currentSearchTerm}`);
+        const request = await fetch(`${API_ENDPOINT}${search.currentSearchTerm}`);
         const response = await request.json();
         dispatchStories({type: 'STORIES_FETCH_SUCCESS', payload: response.hits});
       } catch {
@@ -54,58 +83,95 @@ function App() {
       }
     }
     fetchStories();
-  }, [currentSearchTerm]);
+  }, [search.currentSearchTerm]);
 
   useEffect(() => {
-    localStorage.setItem('remember-search', JSON.stringify(rememberSearches ? currentSearchTerm : false));
-  }, [currentSearchTerm, rememberSearches]);
+    localStorage.setItem('remember-search', JSON.stringify(search.rememberSearchTerm ? search.currentSearchTerm : false));
+  }, [search.currentSearchTerm, search.rememberSearchTerm]);
 
   const handleSearchInput = (e) =>
-  setSearchInput(e.target.value);
+  searchDispatch({ type: 'UPDATE_SEARCH_INPUT', payload: e.target.value });
 
   const handleCheckbox = (e) => {
-    setRememberSearches(e.target.checked);
+    searchDispatch({ type: 'UPDATE_REMEMBER_SEARCH', payload: e.target.checked });
   }
 
   const handelSearchSubmit = () =>
-    setCurrentSearchTerm(searchInput);
+    searchDispatch({ type: 'SUBMIT_SEARCH', payload: search.searchInput});
+
+  const handleItemClick = (item) =>
+    dispatchStories({ type: 'REMOVE_STORY', payload: item});
 
   return (
     <main>
-      <InputWithLabel name="remember" type="checkbox" checked={rememberSearches} onChange={handleCheckbox}>Remember my last search</InputWithLabel>
-      <InputWithLabel name="search" value={searchInput} onChange={handleSearchInput}>Search:</InputWithLabel>
-      <button type="submit" onClick={handelSearchSubmit}>Submit</button>
-      {stories.isLoading
-        ? <div>...LOADING</div>
-        : <List list={stories.data} />
-      }
+      <h1>Hacker News stories</h1>
+
+      <header>
+        <InputWithLabel
+          name="remember"
+          type="checkbox"
+          checked={search.rememberSearchTerm}
+          onChange={handleCheckbox}
+        >
+          Remember my last search
+        </InputWithLabel>
+
+        <InputWithLabel
+          name="search"
+          value={search.searchInput}
+          onChange={handleSearchInput}
+        >
+          Search:
+        </InputWithLabel>
+
+        <button
+          type="submit"
+          onClick={handelSearchSubmit}
+        >
+          Submit
+        </button>
+      </header>
+
+      <section>
+        { search.currentSearchTerm &&
+          <h2>{ `Results for ${search.currentSearchTerm}` }</h2>
+        }
+
+        { stories.isLoading
+          ? <div>...LOADING</div>
+          : <List list={stories.data} onClick={ handleItemClick }/>
+        }
+      </section>
     </main>
   );
 }
 
-function List({list}) {
+function List({ list, onClick }) {
   return (
     <ul>
       {list.map((item) =>
-        <ListItem {...item} key={item.objectID} />
+        <ListItem {...item} key={item.objectID} onClick={ () => onClick(item) }/>
       )}
     </ul>
   );
 }
 
-function ListItem({title, url, author}) {
+function ListItem({ title, url, author, onClick }) {
   return (
-    <li>
-      <a href={url}>{title}</a> {author}
+    <li className="list-item">
+      <span>
+        <a href={ url }>{ title }</a> by { author }
+      </span>
+      <button type="button" onClick={ onClick }>Remove</button>
     </li>
   );
 }
 
-function InputWithLabel({name, type = 'text', placeholder = '', value, children, ...rest}) {
+function InputWithLabel({ name, children, ...rest }) {
   return (
     <div>
       <label htmlFor={name}>{children}</label>
-      <input name={name} type={type} value={value} placeholder={placeholder} {...rest} />
+      <input name={name} {...rest} />
     </div>
   );
 }
