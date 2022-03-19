@@ -1,20 +1,57 @@
 import './App.css';
-import { useEffect, useState } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 
 const API_ENDPOINT = 'https://hn.algolia.com/api/v1/search?query=';
 const initialRememberSearch = JSON.parse(localStorage.getItem('remember-search'));
+
+const storyReducer = (state, action) => {
+  switch (action.type) {
+    case 'STORIES_FETCH_INIT':
+      return {
+        ...state,
+        isLoading: true,
+        isError: false,
+      };
+    case 'STORIES_FETCH_FAILURE':
+      return {
+        ...state,
+        isLoading: false,
+        isError: true,
+      };
+    case 'REMOVE_STORY':
+      return {
+        ...state,
+        stories: state.data.filter(story => action.payload.objectID !== story.objectID)
+      };
+    case 'STORIES_FETCH_SUCCESS':
+      return {
+        ...state,
+        isLoading: false,
+        isError: false,
+        data: action.payload,
+      };
+    default:
+      throw new Error();
+  }
+}
 
 function App() {
   const [rememberSearches, setRememberSearches] = useState( !!initialRememberSearch);
   const [currentSearchTerm, setCurrentSearchTerm] = useState(initialRememberSearch || '');
   const [searchInput, setSearchInput] = useState(rememberSearches ? initialRememberSearch : '');
-  const [list, setList] = useState([]);
+
+  const [stories, dispatchStories] = useReducer(storyReducer, { data: [], isLoading: false, isError: false });
 
   useEffect(() => {
     const fetchStories = async () => {
-      const request = await fetch(`${API_ENDPOINT}${currentSearchTerm}`);
-      const response = await request.json();
-      setList(response.hits);
+      dispatchStories({type: 'STORIES_FETCH_INIT'});
+      try {
+        const request = await fetch(`${API_ENDPOINT}${currentSearchTerm}`);
+        const response = await request.json();
+        dispatchStories({type: 'STORIES_FETCH_SUCCESS', payload: response.hits});
+      } catch {
+        dispatchStories({type: 'FETCH_STORIES_FAILURE'});
+      }
     }
     fetchStories();
   }, [currentSearchTerm]);
@@ -38,7 +75,10 @@ function App() {
       <InputWithLabel name="remember" type="checkbox" checked={rememberSearches} onChange={handleCheckbox}>Remember my last search</InputWithLabel>
       <InputWithLabel name="search" value={searchInput} onChange={handleSearchInput}>Search:</InputWithLabel>
       <button type="submit" onClick={handelSearchSubmit}>Submit</button>
-      <List list={list} />
+      {stories.isLoading
+        ? <div>...LOADING</div>
+        : <List list={stories.data} />
+      }
     </main>
   );
 }
