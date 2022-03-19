@@ -106,7 +106,24 @@ function App() {
     <main>
       <h1>Hacker News stories</h1>
 
-      <header>
+      <header className="space-between">
+        <div>
+          <InputWithLabel
+            name="search"
+            value={search.searchInput}
+            onChange={handleSearchInput}
+          >
+            Search: &nbsp;
+          </InputWithLabel>
+
+          <button
+            type="submit"
+            onClick={handelSearchSubmit}
+          >
+            Submit
+          </button>
+        </div>
+
         <InputWithLabel
           name="remember"
           type="checkbox"
@@ -115,22 +132,9 @@ function App() {
         >
           Remember my last search
         </InputWithLabel>
-
-        <InputWithLabel
-          name="search"
-          value={search.searchInput}
-          onChange={handleSearchInput}
-        >
-          Search:
-        </InputWithLabel>
-
-        <button
-          type="submit"
-          onClick={handelSearchSubmit}
-        >
-          Submit
-        </button>
       </header>
+
+      <hr />
 
       <section>
         { search.currentSearchTerm &&
@@ -158,7 +162,7 @@ function List({ list, onClick }) {
 
 function ListItem({ title, url, author, onClick }) {
   return (
-    <li className="list-item">
+    <li className="list-item space-between">
       <span>
         <a href={ url }>{ title }</a> by { author }
       </span>
@@ -169,7 +173,7 @@ function ListItem({ title, url, author, onClick }) {
 
 function InputWithLabel({ name, children, ...rest }) {
   return (
-    <div>
+    <div className="labeled-input">
       <label htmlFor={name}>{children}</label>
       <input name={name} {...rest} />
     </div>
